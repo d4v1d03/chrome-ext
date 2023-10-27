@@ -1,0 +1,2 @@
+Error message related to webpack 5's handling of core Node.js modules, need to get it fixed for dotenv and its internal dependencies.
+To fix this issue, need to add webpack resolve fallback configurations for the 'path' and 'os' modules in your webpack configuration file.
