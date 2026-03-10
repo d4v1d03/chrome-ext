@@ -1,51 +1,823 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ethereum Balance Viewer</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            padding: 20px;
-            width: 300px;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FilArchive</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        input, button {
-            width: 100%;
-            padding: 10px;
-            margin-top: 10px;
-            box-sizing: border-box;
-            border: 1px solid #aaa;
-            border-radius: 4px;
-            font-size: 16px;
-        }
+    body {
+      width: 380px;
+      min-height: 480px;
+      background: #0a0c13;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
 
-        button {
-            background-color: #333;
-            color: #fff;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      background: #0d1018;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .logo-hex {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #0090ff 0%, #00d4ff 100%);
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .logo-text {
+      font-size: 15px;
+      font-weight: 700;
+      color: #f1f5f9;
+      letter-spacing: -0.3px;
+    }
+    .logo-badge {
+      font-size: 9px;
+      background: rgba(0,144,255,0.15);
+      color: #0090ff;
+      border: 1px solid rgba(0,144,255,0.3);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .header-actions {
+      display: flex;
+      gap: 4px;
+    }
+    .icon-btn {
+      width: 30px;
+      height: 30px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 7px;
+      color: #94a3b8;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: all 0.15s;
+    }
+    .icon-btn:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
 
-        button:hover {
-            background-color: #555;
-        }
+    /* ── Views ── */
+    .view { display: none; }
+    .view.active { display: block; }
 
-        #result {
-            margin-top: 15px;
-            font-weight: bold;
-            color: #333;
-        }
-    </style>
+    /* ── Main View ── */
+    .main-content { padding: 14px 16px; }
+
+    /* Setup Banner */
+    .setup-banner {
+      background: linear-gradient(135deg, rgba(0,144,255,0.1) 0%, rgba(0,212,255,0.05) 100%);
+      border: 1px solid rgba(0,144,255,0.2);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 14px;
+      display: none;
+    }
+    .setup-banner.visible { display: block; }
+    .setup-banner-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #0090ff;
+      margin-bottom: 4px;
+    }
+    .setup-banner-desc {
+      font-size: 12px;
+      color: #64748b;
+      margin-bottom: 10px;
+    }
+    .btn-setup {
+      background: #0090ff;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 7px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-setup:hover { background: #0080e5; }
+
+    /* Current Page Card */
+    .page-card {
+      background: #111520;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .page-card-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      color: #475569;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .page-title-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e8f0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 3px;
+    }
+    .page-url-text {
+      font-size: 11px;
+      color: #475569;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .page-meta {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .meta-chip {
+      font-size: 10px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 4px;
+      padding: 1px 6px;
+      color: #64748b;
+    }
+
+    /* Archive Button */
+    .btn-archive {
+      width: 100%;
+      padding: 11px 16px;
+      background: linear-gradient(135deg, #0090ff 0%, #0060cc 100%);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.15s;
+      margin-bottom: 14px;
+      box-shadow: 0 2px 12px rgba(0,144,255,0.25);
+    }
+    .btn-archive:hover:not(:disabled) {
+      background: linear-gradient(135deg, #00a0ff 0%, #0070dd 100%);
+      box-shadow: 0 4px 16px rgba(0,144,255,0.35);
+      transform: translateY(-1px);
+    }
+    .btn-archive:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+    .btn-archive.loading {
+      background: linear-gradient(135deg, #0060aa 0%, #004488 100%);
+      cursor: not-allowed;
+    }
+
+    /* Progress Section */
+    .progress-section {
+      background: #111520;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 14px;
+      display: none;
+    }
+    .progress-section.visible { display: block; }
+    .progress-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .progress-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #475569;
+    }
+    .progress-step.active { color: #e2e8f0; }
+    .progress-step.done { color: #22c55e; }
+    .progress-step.error { color: #ef4444; }
+    .step-icon {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1.5px solid currentColor;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      flex-shrink: 0;
+    }
+    .progress-step.active .step-icon {
+      background: rgba(0,144,255,0.15);
+      border-color: #0090ff;
+      color: #0090ff;
+    }
+    .progress-step.done .step-icon {
+      background: rgba(34,197,94,0.15);
+      border-color: #22c55e;
+    }
+    .spinner {
+      width: 10px;
+      height: 10px;
+      border: 1.5px solid rgba(0,144,255,0.3);
+      border-top-color: #0090ff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .progress-bar-wrap {
+      background: rgba(255,255,255,0.05);
+      border-radius: 3px;
+      height: 3px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #0090ff, #00d4ff);
+      border-radius: 3px;
+      transition: width 0.4s ease;
+      width: 0%;
+    }
+
+    /* Success Section */
+    .success-section {
+      background: linear-gradient(135deg, rgba(34,197,94,0.08) 0%, rgba(0,144,255,0.05) 100%);
+      border: 1px solid rgba(34,197,94,0.2);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 14px;
+      display: none;
+    }
+    .success-section.visible { display: block; }
+    .success-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .success-check {
+      width: 22px;
+      height: 22px;
+      background: rgba(34,197,94,0.2);
+      border: 1.5px solid #22c55e;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #22c55e;
+    }
+    .success-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #22c55e;
+    }
+    .cid-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      color: #475569;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+    .cid-value {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 10px;
+      color: #94a3b8;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 6px;
+      padding: 7px 10px;
+      word-break: break-all;
+      margin-bottom: 8px;
+    }
+    .cid-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .btn-small {
+      flex: 1;
+      padding: 6px 10px;
+      border-radius: 7px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      transition: all 0.15s;
+      border: none;
+    }
+    .btn-copy {
+      background: rgba(0,144,255,0.15);
+      color: #0090ff;
+      border: 1px solid rgba(0,144,255,0.25);
+    }
+    .btn-copy:hover { background: rgba(0,144,255,0.25); }
+    .btn-view {
+      background: rgba(255,255,255,0.05);
+      color: #94a3b8;
+      border: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .btn-view:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
+
+    /* Error Section */
+    .error-section {
+      background: rgba(239,68,68,0.08);
+      border: 1px solid rgba(239,68,68,0.2);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 14px;
+      display: none;
+    }
+    .error-section.visible { display: block; }
+    .error-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #ef4444;
+      margin-bottom: 4px;
+    }
+    .error-msg { font-size: 11px; color: #94a3b8; line-height: 1.5; }
+    .error-hint {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #64748b;
+    }
+    .error-hint a { color: #0090ff; text-decoration: none; }
+    .error-hint a:hover { text-decoration: underline; }
+
+    /* Archives List */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      color: #475569;
+      text-transform: uppercase;
+    }
+    .badge {
+      font-size: 10px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 1px 7px;
+      color: #64748b;
+      font-weight: 600;
+    }
+    .archive-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+    .archive-list::-webkit-scrollbar { width: 4px; }
+    .archive-list::-webkit-scrollbar-track { background: transparent; }
+    .archive-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+    .archive-item {
+      background: #111520;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      padding: 9px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: border-color 0.15s;
+    }
+    .archive-item:hover { border-color: rgba(0,144,255,0.2); }
+    .archive-item-icon {
+      width: 28px;
+      height: 28px;
+      background: rgba(0,144,255,0.1);
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .archive-item-info { flex: 1; overflow: hidden; }
+    .archive-item-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #cbd5e1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .archive-item-cid {
+      font-family: monospace;
+      font-size: 10px;
+      color: #475569;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .archive-item-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .btn-icon-xs {
+      width: 24px;
+      height: 24px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 5px;
+      color: #64748b;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .btn-icon-xs:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
+    .empty-state {
+      text-align: center;
+      padding: 20px 16px;
+      color: #334155;
+      font-size: 12px;
+    }
+    .empty-state-icon { font-size: 24px; margin-bottom: 6px; }
+
+    /* ── Settings View ── */
+    .settings-content { padding: 14px 16px; }
+    .settings-back {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #64748b;
+      cursor: pointer;
+      margin-bottom: 16px;
+      padding: 6px 0;
+      width: fit-content;
+    }
+    .settings-back:hover { color: #94a3b8; }
+    .settings-section {
+      margin-bottom: 16px;
+    }
+    .settings-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      color: #475569;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .settings-desc {
+      font-size: 11px;
+      color: #334155;
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+    .settings-input {
+      width: 100%;
+      background: #111520;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 9px 12px;
+      color: #e2e8f0;
+      font-size: 12px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .settings-input:focus { border-color: rgba(0,144,255,0.4); }
+    .settings-input::placeholder { color: #334155; }
+    .network-options {
+      display: flex;
+      gap: 6px;
+    }
+    .network-opt {
+      flex: 1;
+      padding: 8px 10px;
+      background: #111520;
+      border: 1.5px solid rgba(255,255,255,0.07);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .network-opt.selected {
+      border-color: #0090ff;
+      background: rgba(0,144,255,0.08);
+    }
+    .network-opt-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 2px;
+    }
+    .network-opt.selected .network-opt-name { color: #0090ff; }
+    .network-opt-desc { font-size: 10px; color: #334155; }
+    .wallet-info {
+      background: #111520;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .wallet-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      padding: 2px 0;
+    }
+    .wallet-row-label { color: #475569; }
+    .wallet-row-value {
+      font-family: monospace;
+      color: #94a3b8;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .faucet-links {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .faucet-link {
+      flex: 1;
+      padding: 6px 8px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 7px;
+      color: #64748b;
+      font-size: 10px;
+      text-decoration: none;
+      text-align: center;
+      transition: all 0.15s;
+    }
+    .faucet-link:hover { background: rgba(0,144,255,0.08); color: #0090ff; border-color: rgba(0,144,255,0.2); }
+    .btn-save {
+      width: 100%;
+      padding: 10px;
+      background: linear-gradient(135deg, #0090ff 0%, #0060cc 100%);
+      border: none;
+      border-radius: 9px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      margin-top: 4px;
+    }
+    .btn-save:hover { background: linear-gradient(135deg, #00a0ff 0%, #0070dd 100%); }
+    .save-feedback {
+      text-align: center;
+      font-size: 11px;
+      margin-top: 8px;
+      min-height: 16px;
+      color: #22c55e;
+    }
+
+    /* Scrollbar global */
+    body::-webkit-scrollbar { width: 4px; }
+    body::-webkit-scrollbar-track { background: transparent; }
+    body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+    /* Tooltip copy feedback */
+    .copied-toast {
+      position: fixed;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      background: rgba(34,197,94,0.9);
+      color: #fff;
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.2s;
+    }
+    .copied-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: rgba(255,255,255,0.05);
+      margin: 12px 0;
+    }
+  </style>
 </head>
 <body>
-    <div>
-        <input type="text" id="ethAddress" placeholder="Enter Ethereum Address">
-        <button id="fetchBalance">Fetch Balance</button>
+
+  <!-- ── Header (always visible) ── -->
+  <header class="header">
+    <div class="logo">
+      <div class="logo-hex">F</div>
+      <span class="logo-text">FilArchive</span>
+      <span class="logo-badge">FILECOIN</span>
     </div>
-    <div id="result"></div>
-    <script src="popup.bundle.js"></script>
+    <div class="header-actions">
+      <button class="icon-btn" id="btn-settings" title="Settings">⚙</button>
+    </div>
+  </header>
+
+  <!-- ── Main View ── -->
+  <div id="view-main" class="view active">
+    <div class="main-content">
+
+      <!-- Setup Banner -->
+      <div class="setup-banner" id="setup-banner">
+        <div class="setup-banner-title">⚡ Set Up Your Wallet</div>
+        <div class="setup-banner-desc">Add your Filecoin private key to start archiving pages to decentralized storage.</div>
+        <button class="btn-setup" id="btn-go-setup">Configure Wallet →</button>
+      </div>
+
+      <!-- Current Page Card -->
+      <div class="page-card" id="page-card">
+        <div class="page-card-label">Current Page</div>
+        <div class="page-title-text" id="page-title">Loading page info...</div>
+        <div class="page-url-text" id="page-url"></div>
+        <div class="page-meta">
+          <span class="meta-chip" id="page-size">–</span>
+          <span class="meta-chip" id="page-time">–</span>
+        </div>
+      </div>
+
+      <!-- Error Section -->
+      <div class="error-section" id="error-section">
+        <div class="error-title">⚠ Archive Failed</div>
+        <div class="error-msg" id="error-msg"></div>
+        <div class="error-hint" id="error-hint"></div>
+      </div>
+
+      <!-- Progress Section -->
+      <div class="progress-section" id="progress-section">
+        <div class="progress-steps" id="progress-steps">
+          <div class="progress-step" id="step-extract">
+            <div class="step-icon">1</div>
+            <span>Extracting page content</span>
+          </div>
+          <div class="progress-step" id="step-package">
+            <div class="step-icon">2</div>
+            <span>Packaging archive</span>
+          </div>
+          <div class="progress-step" id="step-balance">
+            <div class="step-icon">3</div>
+            <span>Checking balance</span>
+          </div>
+          <div class="progress-step" id="step-upload">
+            <div class="step-icon">4</div>
+            <span id="step-upload-label">Uploading to Filecoin</span>
+          </div>
+          <div class="progress-step" id="step-confirm">
+            <div class="step-icon">5</div>
+            <span>Confirming on-chain</span>
+          </div>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="progress-bar"></div>
+        </div>
+      </div>
+
+      <!-- Success Section -->
+      <div class="success-section" id="success-section">
+        <div class="success-header">
+          <div class="success-check">✓</div>
+          <div class="success-title">Page Archived!</div>
+        </div>
+        <div class="cid-label">Piece CID</div>
+        <div class="cid-value" id="result-cid"></div>
+        <div class="cid-actions">
+          <button class="btn-small btn-copy" id="btn-copy-cid">Copy CID</button>
+          <a class="btn-small btn-view" id="btn-view-archive" href="#" target="_blank">
+            ↗ View
+          </a>
+        </div>
+      </div>
+
+      <!-- Archive Button -->
+      <button class="btn-archive" id="btn-archive" disabled>
+        <span id="btn-archive-icon">📦</span>
+        <span id="btn-archive-label">Archive This Page</span>
+      </button>
+
+      <div class="divider"></div>
+
+      <!-- Archive History -->
+      <div class="section-header">
+        <span class="section-title">Recent Archives</span>
+        <span class="badge" id="archive-count">0</span>
+      </div>
+      <div class="archive-list" id="archive-list">
+        <div class="empty-state">
+          <div class="empty-state-icon">🗄</div>
+          No archives yet. Click the button above!
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Settings View ── -->
+  <div id="view-settings" class="view">
+    <div class="settings-content">
+      <div class="settings-back" id="btn-back">
+        ← Back
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-label">Private Key</div>
+        <div class="settings-desc">
+          Your Filecoin wallet private key. Stored locally in your browser.
+          Never shared externally.
+        </div>
+        <input
+          type="password"
+          class="settings-input"
+          id="input-private-key"
+          placeholder="0x..."
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-label">Network</div>
+        <div class="network-options">
+          <div class="network-opt selected" id="net-calibration" data-net="calibration">
+            <div class="network-opt-name">Calibration</div>
+            <div class="network-opt-desc">Testnet · Recommended</div>
+          </div>
+          <div class="network-opt" id="net-mainnet" data-net="mainnet">
+            <div class="network-opt-name">Mainnet</div>
+            <div class="network-opt-desc">Production · Real USDFC</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section" id="wallet-info-section" style="display:none">
+        <div class="settings-label">Wallet Info</div>
+        <div class="wallet-info">
+          <div class="wallet-row">
+            <span class="wallet-row-label">Address</span>
+            <span class="wallet-row-value" id="wallet-address">—</span>
+          </div>
+          <div class="wallet-row">
+            <span class="wallet-row-label">Network</span>
+            <span class="wallet-row-value" id="wallet-network">—</span>
+          </div>
+        </div>
+        <div class="faucet-links" id="faucet-links" style="display:none">
+          <a class="faucet-link" href="https://faucet.calibnet.chainsafe-fil.io/" target="_blank">Get tFIL →</a>
+          <a class="faucet-link" href="https://faucet.secured.finance/" target="_blank">Get tUSDFC →</a>
+        </div>
+      </div>
+
+      <button class="btn-save" id="btn-save-settings">Save Settings</button>
+      <div class="save-feedback" id="save-feedback"></div>
+    </div>
+  </div>
+
+  <!-- Copy toast -->
+  <div class="copied-toast" id="copied-toast">Copied!</div>
+
+  <script src="popup.bundle.js"></script>
 </body>
 </html>

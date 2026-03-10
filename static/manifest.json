@@ -1,10 +1,33 @@
 {
-    "manifest_version": 3,
-    "name": "Web3 Extension",
-    "version": "1",
-    "description": "Web3 Extension to view Ether balances on Ethereum",
-    "action": {
-        "default_popup": "popup.html"
+  "manifest_version": 3,
+  "name": "FilArchive — Decentralized Web Archive",
+  "version": "1.0.0",
+  "description": "Archive any webpage permanently to Filecoin decentralized storage. Censorship-resistant, retrievable via CID.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png",
+    "default_title": "FilArchive"
+  },
+  "background": {
+    "service_worker": "background.bundle.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.bundle.js"],
+      "run_at": "document_idle"
     }
-    
+  ],
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "icons": {
+    "48": "icon.png",
+    "128": "icon.png"
+  }
 }

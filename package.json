@@ -1,20 +1,24 @@
 {
-  "name": "chrome-extension",
+  "name": "filarchive-chrome-extension",
   "version": "1.0.0",
-  "description": "",
+  "description": "Archive webpages to Filecoin decentralized storage via Synapse SDK",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "webpack --mode production",
+    "dev": "webpack --mode development --watch",
+    "clean": "rm -rf dist"
   },
-  "keywords": [],
+  "keywords": ["filecoin", "chrome-extension", "decentralized-storage", "archive", "synapse"],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
-    "copy-webpack-plugin": "^11.0.0",
-    "dotenv": "^16.3.1",
-    "webpack": "^5.89.0"
+    "@filoz/synapse-sdk": "latest",
+    "viem": "^2.0.0",
+    "buffer": "^6.0.3"
   },
   "devDependencies": {
+    "copy-webpack-plugin": "^11.0.0",
+    "webpack": "^5.89.0",
     "webpack-cli": "^5.1.4"
   }
 }
