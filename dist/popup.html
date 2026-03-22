@@ -642,6 +642,149 @@
       background: rgba(255,255,255,0.05);
       margin: 12px 0;
     }
+
+    /* ── Mode Selector ── */
+    .mode-section {
+      margin-bottom: 12px;
+    }
+    .mode-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .mode-label-text {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      color: #475569;
+      text-transform: uppercase;
+    }
+    .mode-pills {
+      display: flex;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 9px;
+      padding: 3px;
+      gap: 3px;
+    }
+    .mode-pill {
+      flex: 1;
+      padding: 6px 8px;
+      background: transparent;
+      border: none;
+      border-radius: 7px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+    .mode-pill.active {
+      background: #0090ff;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(0,144,255,0.3);
+    }
+    .mode-pill:hover:not(.active) { color: #94a3b8; }
+    .mode-info {
+      font-size: 11px;
+      color: #334155;
+      line-height: 1.45;
+      padding: 6px 8px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+    .mode-warn {
+      font-size: 11px;
+      color: #f59e0b;
+      background: rgba(245,158,11,0.08);
+      border: 1px solid rgba(245,158,11,0.2);
+      border-radius: 6px;
+      padding: 6px 8px;
+      margin-top: 4px;
+      display: none;
+    }
+    .mode-warn.visible { display: block; }
+    .mode-warn a { color: #f59e0b; }
+
+    /* ── AI Summary Result ── */
+    .ai-summary-section {
+      margin-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding-top: 12px;
+      display: none;
+    }
+    .ai-summary-section.visible { display: block; }
+    .ai-section-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      color: #475569;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .ai-summary-text {
+      font-size: 11px;
+      color: #94a3b8;
+      line-height: 1.55;
+      background: rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 7px;
+      padding: 8px 10px;
+      max-height: 100px;
+      overflow-y: auto;
+    }
+    .ai-key-points {
+      margin-top: 8px;
+    }
+    .ai-key-point {
+      font-size: 11px;
+      color: #64748b;
+      padding: 2px 0 2px 12px;
+      position: relative;
+      line-height: 1.4;
+    }
+    .ai-key-point::before {
+      content: '•';
+      position: absolute;
+      left: 2px;
+      color: #0090ff;
+    }
+    .ai-topics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 8px;
+    }
+    .ai-topic-tag {
+      font-size: 10px;
+      background: rgba(0,144,255,0.1);
+      color: #0090ff;
+      border: 1px solid rgba(0,144,255,0.2);
+      border-radius: 10px;
+      padding: 2px 8px;
+    }
+
+    /* ── Archive item mode badge ── */
+    .mode-badge {
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .mode-badge.full {
+      background: rgba(0,144,255,0.12);
+      color: #0090ff;
+      border: 1px solid rgba(0,144,255,0.2);
+    }
+    .mode-badge.ai {
+      background: rgba(168,85,247,0.12);
+      color: #a855f7;
+      border: 1px solid rgba(168,85,247,0.2);
+    }
   </style>
 </head>
 <body>
@@ -664,9 +807,9 @@
 
       <!-- Setup Banner -->
       <div class="setup-banner" id="setup-banner">
-        <div class="setup-banner-title">⚡ Set Up Your Wallet</div>
-        <div class="setup-banner-desc">Add your Filecoin private key to start archiving pages to decentralized storage.</div>
-        <button class="btn-setup" id="btn-go-setup">Configure Wallet →</button>
+        <div class="setup-banner-title">⚡ Set Up Your Storage</div>
+        <div class="setup-banner-desc">Add a Filecoin private key for direct storage, or a Backend URL for AI-powered saving.</div>
+        <button class="btn-setup" id="btn-go-setup">Configure →</button>
       </div>
 
       <!-- Current Page Card -->
@@ -680,6 +823,23 @@
         </div>
       </div>
 
+      <!-- Save Mode Selector -->
+      <div class="mode-section" id="mode-section">
+        <div class="mode-header">
+          <span class="mode-label-text">Save Mode</span>
+        </div>
+        <div class="mode-pills">
+          <button class="mode-pill active" id="pill-full">📦 Full Save</button>
+          <button class="mode-pill" id="pill-ai">🤖 AI Summary</button>
+        </div>
+        <div class="mode-info" id="mode-info-text" style="margin-top:6px">
+          Captures the complete HTML and stores it to decentralized storage.
+        </div>
+        <div class="mode-warn" id="mode-warn">
+          AI Summary requires a <a href="#" id="link-to-settings-mode">backend URL</a> in Settings.
+        </div>
+      </div>
+
       <!-- Error Section -->
       <div class="error-section" id="error-section">
         <div class="error-title">⚠ Archive Failed</div>
@@ -687,7 +847,7 @@
         <div class="error-hint" id="error-hint"></div>
       </div>
 
-      <!-- Progress Section -->
+      <!-- Progress Section (Direct Filecoin) -->
       <div class="progress-section" id="progress-section">
         <div class="progress-steps" id="progress-steps">
           <div class="progress-step" id="step-extract">
@@ -716,19 +876,52 @@
         </div>
       </div>
 
+      <!-- Progress Section (Backend / Async) -->
+      <div class="progress-section" id="backend-progress-section">
+        <div class="progress-steps">
+          <div class="progress-step" id="bstep-send">
+            <div class="step-icon">1</div>
+            <span>Sending to backend</span>
+          </div>
+          <div class="progress-step" id="bstep-process">
+            <div class="step-icon">2</div>
+            <span id="bstep-process-label">Processing</span>
+          </div>
+          <div class="progress-step" id="bstep-store">
+            <div class="step-icon">3</div>
+            <span>Storing encrypted</span>
+          </div>
+          <div class="progress-step" id="bstep-done">
+            <div class="step-icon">4</div>
+            <span>Complete</span>
+          </div>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="backend-progress-bar"></div>
+        </div>
+      </div>
+
       <!-- Success Section -->
       <div class="success-section" id="success-section">
         <div class="success-header">
           <div class="success-check">✓</div>
-          <div class="success-title">Page Archived!</div>
+          <div class="success-title" id="success-title">Page Archived!</div>
         </div>
-        <div class="cid-label">Piece CID</div>
+        <div class="cid-label">Storage CID</div>
         <div class="cid-value" id="result-cid"></div>
         <div class="cid-actions">
           <button class="btn-small btn-copy" id="btn-copy-cid">Copy CID</button>
           <a class="btn-small btn-view" id="btn-view-archive" href="#" target="_blank">
             ↗ View
           </a>
+        </div>
+
+        <!-- AI Summary result (shown only for ai_summary mode) -->
+        <div class="ai-summary-section" id="ai-summary-section">
+          <div class="ai-section-label">AI Summary</div>
+          <div class="ai-summary-text" id="ai-summary-text"></div>
+          <div class="ai-key-points" id="ai-key-points"></div>
+          <div class="ai-topics" id="ai-topics"></div>
         </div>
       </div>
 
@@ -808,6 +1001,31 @@
           <a class="faucet-link" href="https://faucet.calibnet.chainsafe-fil.io/" target="_blank">Get tFIL →</a>
           <a class="faucet-link" href="https://faucet.secured.finance/" target="_blank">Get tUSDFC →</a>
         </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-label">Backend API</div>
+        <div class="settings-desc">
+          Connect your Private Web Memory backend for AI Summary mode and
+          async processing. Leave blank to use direct Filecoin (Full Save only).
+        </div>
+        <input
+          type="url"
+          class="settings-input"
+          id="input-backend-url"
+          placeholder="http://localhost:8000"
+          autocomplete="off"
+          spellcheck="false"
+          style="margin-bottom:6px"
+        />
+        <input
+          type="password"
+          class="settings-input"
+          id="input-backend-api-key"
+          placeholder="API key (optional)"
+          autocomplete="off"
+          spellcheck="false"
+        />
       </div>
 
       <button class="btn-save" id="btn-save-settings">Save Settings</button>
