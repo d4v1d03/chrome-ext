@@ -743,6 +743,75 @@ function renderHypercert(data) {
   }
 
   resultEl.classList.add('visible');
+
+  // Show the "Publish to Hypercerts Protocol" button if backend is configured
+  const atprotoSection = $('atproto-section');
+  if (atprotoSection && settings.backendUrl) {
+    atprotoSection.style.display = 'block';
+    const publishBtn = $('btn-publish-atproto');
+    if (publishBtn) {
+      publishBtn.onclick = null;
+      publishBtn.addEventListener('click', onPublishAtProto);
+    }
+    const copyBtn = $('btn-copy-atproto-uri');
+    if (copyBtn) copyBtn.addEventListener('click', () => copyToClipboard($('atproto-uri').textContent));
+  }
+}
+
+async function onPublishAtProto() {
+  if (!lastJobId || !settings.backendUrl) return;
+  const btn = $('btn-publish-atproto');
+  btn.disabled = true;
+  btn.textContent = '⏳ Publishing…';
+
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tabUrl   = tab?.url   || '';
+    const tabTitle = tab?.title || '';
+    const headers  = { 'Content-Type': 'application/json' };
+    if (settings.backendApiKey) headers['X-API-Key'] = settings.backendApiKey;
+
+    const params = new URLSearchParams();
+    if (tabUrl)   params.set('page_url',   tabUrl);
+    if (tabTitle) params.set('page_title', tabTitle);
+
+    const base = settings.backendUrl.replace(/\/$/, '');
+    const resp = await fetch(`${base}/api/hypercert/${lastJobId}/publish?${params}`, {
+      method: 'POST', headers,
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }));
+      throw new Error(err.detail || `HTTP ${resp.status}`);
+    }
+
+    const pub = await resp.json();
+    const uri = pub.activity_uri || '';
+
+    $('atproto-uri').textContent = uri;
+    const viewerHref = pub.explorer_url || `https://certified.app`;
+    $('btn-view-atproto').href = viewerHref;
+
+    const stats = [];
+    if (pub.attachment_uris?.length)  stats.push(`${pub.attachment_uris.length} attachment(s)`);
+    if (pub.measurement_uris?.length) stats.push(`${pub.measurement_uris.length} measurement(s)`);
+    if (pub.evaluation_uri)           stats.push('1 evaluation');
+    $('atproto-stats').textContent = stats.length ? `Records created: ${stats.join(', ')}` : '';
+
+    $('atproto-result').style.display = 'block';
+    btn.textContent = '✓ Published';
+
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '✕ Publish failed';
+    const atprotoResult = $('atproto-result');
+    atprotoResult.style.display = 'block';
+    atprotoResult.innerHTML = `
+      <div style="color:#ef4444;font-size:10px;font-weight:700;">✕ ATProto publish failed</div>
+      <div style="font-size:9.5px;color:#94a3b8;margin-top:4px;word-break:break-word;">${escHtml(err.message)}</div>
+      <div style="font-size:9px;color:#475569;margin-top:4px;">Check PDS_HANDLE and PDS_PASSWORD in .env</div>`;
+    setTimeout(() => { btn.disabled = false; btn.textContent = '🔗 Retry Publish'; }, 4000);
+  }
 }
 
 // ── Direct Filecoin Flow (existing) ──────────────────────────────────────────

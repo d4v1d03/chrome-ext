@@ -6,10 +6,12 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     filecoin_private_key: str = ""
     filecoin_network: str = "calibration"
-    # Must be at least 16 chars; change in production
     encryption_secret: str = "change-me-in-production-32chars!"
-    # Optional bearer token to protect the API
     backend_api_key: str = ""
+    # AT Protocol (Hypercerts) — create a free account at certified.app or bsky.social
+    pds_url: str = "https://bsky.social"
+    pds_handle: str = ""   # e.g. yourname.certified.app
+    pds_password: str = "" # app password from Settings → App Passwords
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

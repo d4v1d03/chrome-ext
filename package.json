@@ -8,13 +8,20 @@
     "dev": "webpack --mode development --watch",
     "clean": "rm -rf dist"
   },
-  "keywords": ["filecoin", "chrome-extension", "decentralized-storage", "archive", "synapse"],
+  "keywords": [
+    "filecoin",
+    "chrome-extension",
+    "decentralized-storage",
+    "archive",
+    "synapse"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@atproto/api": "^0.19.5",
     "@filoz/synapse-sdk": "latest",
-    "viem": "^2.0.0",
-    "buffer": "^6.0.3"
+    "buffer": "^6.0.3",
+    "viem": "^2.0.0"
   },
   "devDependencies": {
     "copy-webpack-plugin": "^11.0.0",

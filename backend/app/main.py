@@ -9,6 +9,7 @@ from app.config import settings
 from app.models import (
     HypercertResponse,
     JobStatus,
+    PublishResponse,
     RelatedResponse,
     SaveRequest,
     SaveResponse,
@@ -284,6 +285,101 @@ async def get_hypercert(
 ):
     return await generate_hypercert(job_id, mock=mock, page_url=page_url,
                                      page_title=page_title, page_text=page_text, _=_)
+
+
+@app.post("/api/hypercert/{job_id}/publish", response_model=PublishResponse, tags=["hypercert"])
+async def publish_hypercert(
+    job_id: str,
+    page_url:   Optional[str] = Query(None),
+    page_title: Optional[str] = Query(None),
+    _: None = Depends(verify_api_key),
+):
+    """
+    Publish a Hypercert to the AT Protocol as real, linked records.
+
+    Creates 4 record types on the configured PDS:
+      - org.hypercerts.claim.activity     (core impact claim)
+      - org.hypercerts.context.attachment (page URL + Filecoin CIDs as evidence)
+      - org.hypercerts.context.measurement (AI scores)
+      - org.hypercerts.context.evaluation  (agentic evaluation)
+
+    Requires PDS_HANDLE and PDS_PASSWORD in .env.
+    """
+    if not settings.pds_handle or not settings.pds_password:
+        raise HTTPException(
+            status_code=400,
+            detail="PDS_HANDLE and PDS_PASSWORD must be set in .env to publish to AT Protocol.",
+        )
+
+    result = celery_app.AsyncResult(job_id)
+    if result.state != "SUCCESS":
+        raise HTTPException(
+            status_code=404,
+            detail=f"Job not complete (state={result.state}). Wait for the save to finish first.",
+        )
+
+    data      = result.result or {}
+    url       = page_url   or data.get("url",   "")
+    title     = page_title or data.get("title", "")
+    cid       = data.get("cid", "")
+    scores    = data.get("scores") or {}
+    hc_payload = data.get("hypercert_payload") or {}
+
+    # Build a hypercert object — use existing payload if agentic, otherwise build from metadata
+    if data.get("mode") == "agentic" and hc_payload:
+        from app.hypercert import build_hypercert
+        hc = build_hypercert(
+            generator_output={
+                "hypercert_payload": hc_payload,
+                "summary":    data.get("summary", ""),
+                "key_points": data.get("key_points", []),
+                "topics":     data.get("topics", []),
+            },
+            page_url=url,
+            evidence_cids=[c for c in [cid] if c],
+            job_id=job_id,
+        )
+    else:
+        from app.hypercert import generate_mock_hypercert
+        summary_obj = data.get("summary") or {}
+        snippet = (summary_obj.get("summary", "") if isinstance(summary_obj, dict) else str(summary_obj))[:300]
+        hc = generate_mock_hypercert(
+            url=url, title=title, text_snippet=snippet,
+            evidence_cids=[c for c in [cid] if c], job_id=job_id,
+        )
+        scores = hc.get("scores", scores)
+
+    from app.atproto_publisher import publish
+    try:
+        pub = publish(
+            hypercert=hc,
+            scores=scores,
+            evidence_cids=[c for c in [cid] if c],
+            page_url=url,
+            page_title=title,
+            pds_url=settings.pds_url,
+            identifier=settings.pds_handle,
+            password=settings.pds_password,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    # Build a viewer URL — certified.app can display ATProto hypercerts
+    did_short  = pub.get("did", "").replace("did:plc:", "")
+    viewer_url = f"https://certified.app/hypercert/{pub.get('activityUri', '').replace('at://', '')}" if pub.get("activityUri") else None
+
+    return PublishResponse(
+        job_id=job_id,
+        activity_uri=pub["activityUri"],
+        activity_cid=pub["activityCid"],
+        did=pub.get("did", ""),
+        pds_url=pub.get("pdsUrl", settings.pds_url),
+        attachment_uris=pub.get("attachmentUris", []),
+        measurement_uris=pub.get("measurementUris", []),
+        evaluation_uri=pub.get("evaluationUri"),
+        published_at=pub.get("publishedAt", _now()),
+        explorer_url=viewer_url,
+    )
 
 
 @app.get("/api/debug/job/{job_id}", tags=["debug"])

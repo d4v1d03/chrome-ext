@@ -75,3 +75,16 @@ class HypercertResponse(BaseModel):
     hypercert:   dict
     simulation:  Optional[dict] = None
     generated_at: str
+
+
+class PublishResponse(BaseModel):
+    job_id:          str
+    activity_uri:    str
+    activity_cid:    str
+    did:             str
+    pds_url:         str
+    attachment_uris: list[str]
+    measurement_uris: list[str]
+    evaluation_uri:  Optional[str] = None
+    published_at:    str
+    explorer_url:    Optional[str] = None
