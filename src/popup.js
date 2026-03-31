@@ -789,7 +789,12 @@ async function onPublishAtProto() {
     const uri = pub.activity_uri || '';
 
     $('atproto-uri').textContent = uri;
-    const viewerHref = pub.explorer_url || `https://certified.app`;
+    // Build a local PDS query URL so the user can actually see the record
+    const rkey     = (pub.activity_uri || '').split('/').pop();
+    const pdsBase  = (settings.backendUrl || 'http://localhost:8000').replace(/\/$/, '');
+    const viewerHref = pub.activity_uri
+      ? `${pdsBase.replace(':8000', ':2583')}/xrpc/com.atproto.repo.getRecord?repo=${encodeURIComponent(pub.did)}&collection=org.hypercerts.claim.activity&rkey=${rkey}`
+      : '#';
     $('btn-view-atproto').href = viewerHref;
 
     const stats = [];

@@ -241,16 +241,9 @@ def simulate_mint(hypercert: dict) -> dict:
     return {
         "simulation": True,
         "hypercert_id": hypercert["hypercert_id"],
-        "would_mint": {
-            "contract": "0x822F17A9A5EeCFd66dBAFf7946a8071C265D1d07",  # Hypercerts on Optimism
-            "chain": "optimism",
-            "metadata_uri": f"ipfs://{_fake_cid(hypercert['hypercert_id'])}",
-            "units": 1_000_000,
-            "owner": "0x0000000000000000000000000000000000000000",  # replace with real wallet
-        },
         "message": (
-            "Simulation complete. To mint for real: set WALLET_PRIVATE_KEY in .env "
-            "and call /api/hypercert/{job_id}/mint with real=true"
+            "Impact claim generated. Click 'Publish to Hypercerts Protocol' to create "
+            "real ATProto records on your PDS."
         ),
         "payload_preview": json.dumps(hypercert["metadata"], indent=2)[:500],
     }

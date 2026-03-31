@@ -33,8 +33,13 @@ async function main() {
 
     const bytes = Buffer.from(dataB64, 'base64');
 
-    // Fund the account if needed for this upload size
-    const prep = await synapse.storage.prepare({ dataSize: BigInt(bytes.length) });
+    // Fund the account with extra runway so the on-chain commit doesn't hit
+    // InsufficientLockupFunds. DEFAULT_RUNWAY_EPOCHS=0 deposits bare minimum
+    // which races against lockup recalculation at commit time.
+    const prep = await synapse.storage.prepare({
+      dataSize:         BigInt(bytes.length),
+      extraRunwayEpochs: 86400n,   // one full lockup period of extra buffer
+    });
     if (prep.transaction) {
       await prep.transaction.execute();
     }
