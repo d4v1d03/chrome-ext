@@ -1,4 +1,3 @@
-"""AI-powered page analysis using OpenAI."""
 import json
 from openai import AsyncOpenAI
 
@@ -30,7 +29,6 @@ Return ONLY a JSON object with exactly these fields:
 async def extract_summary(
     html: str, text: str, url: str, title: str, api_key: str
 ) -> dict:
-    """Return a structured archival summary dict from page content."""
     client = AsyncOpenAI(api_key=api_key)
     prompt = _SUMMARY_PROMPT.format(url=url, title=title, text=text[:8000])
 
@@ -45,7 +43,6 @@ async def extract_summary(
 
 
 async def generate_embeddings(text: str, api_key: str) -> list[float]:
-    """Return text-embedding-3-small vectors for semantic search."""
     client = AsyncOpenAI(api_key=api_key)
     response = await client.embeddings.create(
         model="text-embedding-3-small",

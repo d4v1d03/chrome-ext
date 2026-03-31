@@ -1,163 +1,113 @@
-# FilArchive — Decentralized Web Archive Chrome Extension
+# FilImpact
 
-> Archive any webpage permanently to Filecoin decentralized storage.
-> Built for the Filecoin track — Hackathon 2026.
+> Save impactful webpages permanently to Filecoin. AI scores the impact, generates a Hypercert claim, stores everything encrypted and censorship-resistant.
+
+---
+
+## Quick Start
+
+**1. Build the extension**
+```bash
+npm install && npm run build
+```
+Load the `dist/` folder in Chrome via `chrome://extensions` → Developer Mode → Load unpacked.
+
+**2. Run the backend**
+```bash
+cd backend
+cp .env.example .env          # add OPENAI_API_KEY and ENCRYPTION_SECRET
+pip install -r requirements.txt
+brew services start redis
+
+uvicorn app.main:app --reload --port 8000   # terminal 1
+celery -A app.tasks.celery_app worker       # terminal 2
+```
+
+**3. Connect the extension**
+
+Open the FilImpact popup → ⚙ Settings → set Backend URL to `http://localhost:8000`.
+
+**4. Save a page**
+
+Click the floating 💾 button on any page (or open the popup). Choose a mode and hit Save.
+
+| Mode | What happens |
+|------|------|
+| **Full** | Encrypts + stores raw HTML/text. No AI. Instant. |
+| **AI Summary** | GPT-4o-mini summarises the page. Stores summary + embeddings. |
+| **Agentic** | Full 4-agent pipeline — extracts, validates, scores impact, generates a Hypercert payload. |
+
+**5. Generate an Impact Claim**
+
+After any save, click **Generate Impact Claim** in the popup. Works without an OpenAI key — falls back to Demo Mode automatically.
+
+---
 
 ## What It Does
 
-FilArchive is a Chrome extension that lets you save any webpage to Filecoin's
-decentralized storage network in one click. The page is packaged as a structured
-JSON archive (HTML + visible text + metadata) and uploaded via the
-[Synapse SDK](https://github.com/FilOzone/synapse-sdk). You get back a PieceCID
-that can be used to retrieve the page from anywhere, forever.
+FilImpact is a Chrome extension + backend system for permanently archiving webpages with verifiable impact evidence.
 
-```
-Open Webpage → Click "Archive This Page" → Page captured → Uploaded to Filecoin → CID returned
-```
+- Every saved page is **AES-256-GCM encrypted** and stored on **Filecoin** via the Synapse SDK
+- The **Agentic mode** runs four sequential AI agents: Extractor → Validator → Scorer → Generator
+- The **RAG layer** embeds every save so you can semantically search your archive or find related pages
+- **Hypercerts** turn any archived page into an EIP-3525-compatible on-chain impact claim — complete with impact type, scores, actors, and Filecoin CID evidence
 
-## Features
-
-- **One-click archiving** — captures title, URL, full HTML, and visible text
-- **Filecoin storage** — uses `@filoz/synapse-sdk` for Filecoin Onchain Cloud
-- **CID history** — last 50 archives stored locally with quick copy/view actions
-- **Balance-aware** — auto-prepares your account via `synapse.storage.prepare()`
-- **Progress tracking** — live 5-step progress UI (extract → package → balance → upload → confirm)
-- **StorageAgent class** — `store()`, `retrieve()`, `renew()`, `prune()` methods
-- **Testnet support** — defaults to Filecoin Calibration for hackathon demo
+---
 
 ## Tech Stack
 
-| Layer | Technology |
+| | |
 |---|---|
-| Extension | Chrome MV3, JavaScript, Webpack 5 |
-| Storage SDK | `@filoz/synapse-sdk` (Filecoin Onchain Cloud) |
-| Wallet | `viem` + `privateKeyToAccount` |
-| Network | Filecoin Calibration Testnet (or Mainnet) |
-| Bundler | Webpack 5 with Buffer polyfill |
+| **Chrome extension** | MV3, vanilla JS, Webpack 5, Shadow DOM for the floating button |
+| **Backend API** | FastAPI (Python) — async, all endpoints under `/api/` |
+| **Background jobs** | Celery workers + Redis as broker/result backend |
+| **AI** | OpenAI `gpt-4o-mini` for all agents, `text-embedding-3-small` for embeddings |
+| **RAG** | In-process numpy cosine similarity, persisted to `/tmp/filimpact_rag.json` |
+| **Encryption** | AES-256-GCM via Python `cryptography`, PBKDF2 key derivation |
+| **Storage** | `@filoz/synapse-sdk` (Filecoin); `MockStorage` in-memory dict for dev |
+| **Hypercerts** | EIP-3525 schema; AI-generated or keyword-heuristic demo mode |
 
-## Setup
-
-### Prerequisites
-
-- Node.js >= 18
-- A Filecoin wallet private key (`0x...`)
-- Testnet tokens (Calibration):
-  - **tFIL** (for gas): [faucet.calibnet.chainsafe-fil.io](https://faucet.calibnet.chainsafe-fil.io/)
-  - **tUSDFC** (for storage payments): [faucet.secured.finance](https://faucet.secured.finance/)
-
-### Build
-
-```bash
-npm install
-npm run build        # production build → dist/
-npm run dev          # watch mode for development
-```
-
-### Load in Chrome
-
-1. Open `chrome://extensions`
-2. Enable **Developer Mode** (top right)
-3. Click **Load unpacked**
-4. Select the `dist/` folder
-
-### Configure
-
-1. Click the FilArchive icon in your toolbar
-2. Click the **⚙** settings button
-3. Enter your private key (`0x...`) and select **Calibration** network
-4. Click **Save Settings**
-5. Your wallet address will appear — fund it with tFIL and tUSDFC
+---
 
 ## Architecture
 
 ```
-chrome-ext/
-├── src/
-│   ├── popup.js              # Main popup UI logic + archive orchestration
-│   ├── content.js            # Content script — extracts page data
-│   ├── background.js         # Service worker — archive history storage
-│   └── storage/
-│       └── agent.js          # StorageAgent class (Synapse SDK wrapper)
-├── static/
-│   ├── manifest.json         # Chrome MV3 manifest
-│   ├── popup.html            # Extension popup UI
-│   └── icon.png
-├── dist/                     # Built extension (load this in Chrome)
-├── package.json
-└── webpack.config.js
+Browser (Extension)
+  content.js     — floating button, captures HTML + text
+  popup.js       — UI, mode selection, polls /api/status, renders results
+  background.js  — proxies cross-origin fetch to backend
+        │
+        ▼  HTTP
+FastAPI (main.py)
+  POST /api/save         → queues Celery task, returns job_id
+  GET  /api/status/{id}  → returns progress + results
+  POST /api/hypercert/{id} → builds Hypercert (AI or demo)
+  GET  /api/search       → semantic search via RAG
+        │
+        ▼  Celery + Redis
+Worker (tasks.py)
+  process_full_save        — encrypt → store
+  process_ai_summary       — GPT summary → embed → store → RAG index
+  process_agentic_pipeline — Extractor → Validator → Scorer → Generator
+                             → embed → store → RAG index → Hypercert payload
+        │
+        ▼
+Storage (Filecoin / MockStorage)  +  RAG (numpy vector store)
 ```
 
-### StorageAgent API
+### Agent pipeline (Agentic mode only)
 
-```javascript
-import { StorageAgent } from './storage/agent.js';
+| Agent | Input | Output |
+|---|---|---|
+| **Extractor** | Raw page text | Structured JSON: claims, entities, credibility signals |
+| **Validator** | Extractor output + RAG context | Credibility score, flags, contradictions |
+| **Scorer** | Extractor + Validator + RAG | Impact score, novelty score, impact type |
+| **Generator** | All three outputs + CIDs | Final summary, key points, Hypercert payload |
 
-const agent = new StorageAgent('0x...privateKey', 'calibration');
-
-// Archive a page
-await agent.prepare(bytes.length);           // fund if needed
-const cid = await agent.store(bytes, meta);  // upload → returns pieceCid
-
-// Retrieve an archive
-const content = await agent.retrieve(cid);  // download by pieceCid
-
-// Extend storage
-const newCid = await agent.renew(cid);      // re-upload content
-
-// Clean up local history
-const recent = agent.prune(history, 365 * 24 * 60 * 60 * 1000);
-```
-
-### Upload Flow
-
-1. **Extract** — content script pulls `outerHTML` (≤200KB) and `innerText` (≤50KB)
-2. **Package** — JSON archive with `metadata` + `content` sections
-3. **Prepare** — `synapse.storage.prepare({ dataSize })` — auto-deposits USDFC if needed
-4. **Upload** — `synapse.storage.upload(bytes, { metadata, callbacks })` — store-pull-commit
-5. **Confirm** — on-chain confirmation, `pieceCid` returned
-
-### Archive Format
-
-```json
-{
-  "metadata": {
-    "url": "https://example.com/article",
-    "title": "Page Title",
-    "timestamp": 1710000000000,
-    "archivedAt": "2026-03-11T00:00:00.000Z",
-    "version": "1.0",
-    "source": "filarchive-chrome-extension"
-  },
-  "content": {
-    "html": "<!DOCTYPE html>...",
-    "text": "Visible text content..."
-  }
-}
-```
-
-## Retrieval
-
-Retrieve any archived page using its PieceCID:
-
-```javascript
-const content = await agent.retrieve('bafkzcib...');
-const archive = JSON.parse(content);
-console.log(archive.metadata.url);
-```
-
-Or view via IPFS gateway:
-```
-https://ipfs.io/ipfs/<pieceCid>
-```
+---
 
 ## Resources
 
-- [Synapse SDK Docs](https://docs.filecoin.cloud/)
-- [Filecoin Onchain Cloud](https://docs.filecoin.cloud/core-concepts/architecture.md)
-- [Synapse SDK GitHub](https://github.com/FilOzone/synapse-sdk)
-- [Starter Kit (foc-upload-dapp)](https://github.com/FIL-Builders/foc-upload-dapp)
-- [MCP Storage Server](https://github.com/FIL-Builders/foc-storage-mcp)
-
-## License
-
-MIT
+- [Synapse SDK](https://github.com/FilOzone/synapse-sdk)
+- [Hypercerts Protocol](https://hypercerts.org/docs/developer/metadata)
+- [Filecoin Calibration faucet](https://faucet.calibnet.chainsafe-fil.io/)

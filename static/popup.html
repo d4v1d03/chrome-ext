@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FilArchive</title>
+  <title>FilImpact</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -785,6 +785,183 @@
       color: #a855f7;
       border: 1px solid rgba(168,85,247,0.2);
     }
+    .mode-badge.agentic {
+      background: rgba(34,197,94,0.12);
+      color: #22c55e;
+      border: 1px solid rgba(34,197,94,0.2);
+    }
+
+    /* ── Scores Panel ── */
+    .scores-panel {
+      display: none;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding-top: 12px;
+    }
+    .scores-panel.visible { display: grid; }
+    .score-cell {
+      background: rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 7px;
+      padding: 7px 6px;
+      text-align: center;
+    }
+    .score-val {
+      font-size: 16px;
+      font-weight: 700;
+      color: #e2e8f0;
+      line-height: 1;
+      margin-bottom: 3px;
+    }
+    .score-val.high   { color: #22c55e; }
+    .score-val.medium { color: #f59e0b; }
+    .score-val.low    { color: #ef4444; }
+    .score-name {
+      font-size: 9px;
+      color: #475569;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .impact-type-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 11px;
+      color: #64748b;
+    }
+    .impact-type-tag {
+      font-size: 10px;
+      background: rgba(168,85,247,0.1);
+      color: #a855f7;
+      border: 1px solid rgba(168,85,247,0.2);
+      border-radius: 10px;
+      padding: 2px 8px;
+      font-weight: 600;
+    }
+
+    /* ── Impact Claim / Hypercert Panel ── */
+    .hypercert-panel {
+      display: none;
+      margin-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding-top: 10px;
+    }
+    .hypercert-panel.visible { display: block; }
+    .btn-impact {
+      width: 100%;
+      padding: 9px 12px;
+      background: linear-gradient(135deg, rgba(168,85,247,0.2), rgba(99,102,241,0.15));
+      border: 1px solid rgba(168,85,247,0.3);
+      border-radius: 9px;
+      color: #a855f7;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+    .btn-impact:hover:not(:disabled) {
+      background: linear-gradient(135deg, rgba(168,85,247,0.3), rgba(99,102,241,0.25));
+      border-color: rgba(168,85,247,0.5);
+    }
+    .btn-impact:disabled { opacity: 0.5; cursor: wait; }
+    .hypercert-result {
+      display: none;
+      margin-top: 10px;
+      background: rgba(168,85,247,0.05);
+      border: 1px solid rgba(168,85,247,0.15);
+      border-radius: 9px;
+      padding: 12px;
+    }
+    .hypercert-result.visible { display: block; }
+    .hc-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .hc-icon {
+      width: 22px; height: 22px;
+      background: rgba(168,85,247,0.2);
+      border: 1.5px solid #a855f7;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; color: #a855f7; flex-shrink: 0;
+    }
+    .hc-title { font-size: 12px; font-weight: 700; color: #a855f7; }
+    .hc-field { margin-bottom: 6px; }
+    .hc-label {
+      font-size: 9px; font-weight: 600; letter-spacing: 0.6px;
+      color: #475569; text-transform: uppercase; margin-bottom: 2px;
+    }
+    .hc-value {
+      font-size: 11px; color: #94a3b8; line-height: 1.4;
+    }
+    .hc-cid {
+      font-family: monospace; font-size: 9px; color: #64748b;
+      word-break: break-all; margin-top: 2px;
+    }
+    .hc-sim-note {
+      font-size: 10px; color: #475569; margin-top: 8px;
+      padding: 6px 8px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 5px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    /* ── Search bar ── */
+    .search-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .search-input {
+      flex: 1;
+      background: #111520;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 7px 10px;
+      color: #e2e8f0;
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .search-input:focus { border-color: rgba(0,144,255,0.35); }
+    .search-input::placeholder { color: #334155; }
+    .search-results-list {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 10px;
+      padding: 10px;
+      background: rgba(0,144,255,0.04);
+      border: 1px solid rgba(0,144,255,0.1);
+      border-radius: 8px;
+    }
+    .search-results-list.visible { display: flex; }
+    .search-result-item {
+      font-size: 11px; cursor: pointer;
+      padding: 5px 6px;
+      border-radius: 5px;
+      transition: background 0.1s;
+    }
+    .search-result-item:hover { background: rgba(255,255,255,0.05); }
+    .sr-title { color: #cbd5e1; font-weight: 600; }
+    .sr-meta  { color: #475569; margin-top: 1px; }
+    .sr-score {
+      display: inline-block;
+      font-size: 9px; font-weight: 700;
+      background: rgba(0,144,255,0.15);
+      color: #0090ff; border-radius: 3px;
+      padding: 1px 4px; margin-left: 4px;
+    }
   </style>
 </head>
 <body>
@@ -793,8 +970,8 @@
   <header class="header">
     <div class="logo">
       <div class="logo-hex">F</div>
-      <span class="logo-text">FilArchive</span>
-      <span class="logo-badge">FILECOIN</span>
+      <span class="logo-text">FilImpact</span>
+      <span class="logo-badge">AI + FILECOIN</span>
     </div>
     <div class="header-actions">
       <button class="icon-btn" id="btn-settings" title="Settings">⚙</button>
@@ -829,14 +1006,15 @@
           <span class="mode-label-text">Save Mode</span>
         </div>
         <div class="mode-pills">
-          <button class="mode-pill active" id="pill-full">📦 Full Save</button>
-          <button class="mode-pill" id="pill-ai">🤖 AI Summary</button>
+          <button class="mode-pill active" id="pill-full">📦 Full</button>
+          <button class="mode-pill" id="pill-ai">🤖 AI</button>
+          <button class="mode-pill" id="pill-agentic">⚡ Agentic</button>
         </div>
         <div class="mode-info" id="mode-info-text" style="margin-top:6px">
           Captures the complete HTML and stores it to decentralized storage.
         </div>
         <div class="mode-warn" id="mode-warn">
-          AI Summary requires a <a href="#" id="link-to-settings-mode">backend URL</a> in Settings.
+          This mode requires a <a href="#" id="link-to-settings-mode">Backend URL</a> in Settings.
         </div>
       </div>
 
@@ -916,12 +1094,68 @@
           </a>
         </div>
 
-        <!-- AI Summary result (shown only for ai_summary mode) -->
+        <!-- AI Summary result -->
         <div class="ai-summary-section" id="ai-summary-section">
           <div class="ai-section-label">AI Summary</div>
           <div class="ai-summary-text" id="ai-summary-text"></div>
           <div class="ai-key-points" id="ai-key-points"></div>
           <div class="ai-topics" id="ai-topics"></div>
+        </div>
+
+        <!-- Agentic Scores Panel -->
+        <div class="scores-panel" id="scores-panel">
+          <div class="score-cell">
+            <div class="score-val" id="sc-impact">–</div>
+            <div class="score-name">Impact</div>
+          </div>
+          <div class="score-cell">
+            <div class="score-val" id="sc-confidence">–</div>
+            <div class="score-name">Confidence</div>
+          </div>
+          <div class="score-cell">
+            <div class="score-val" id="sc-novelty">–</div>
+            <div class="score-name">Novelty</div>
+          </div>
+          <div class="score-cell">
+            <div class="score-val" id="sc-credibility">–</div>
+            <div class="score-name">Credibility</div>
+          </div>
+        </div>
+        <div class="impact-type-row" id="impact-type-row" style="display:none">
+          <span>Impact type:</span>
+          <span class="impact-type-tag" id="impact-type-tag">–</span>
+        </div>
+
+        <!-- Hypercert Impact Claim -->
+        <div class="hypercert-panel" id="hypercert-panel">
+          <button class="btn-impact" id="btn-generate-impact">
+            <span>🌱</span> Generate Impact Claim
+          </button>
+          <div class="hypercert-result" id="hypercert-result">
+            <div class="hc-header">
+              <div class="hc-icon">✦</div>
+              <div class="hc-title">Hypercert Generated</div>
+            </div>
+            <div class="hc-field">
+              <div class="hc-label">Work Title</div>
+              <div class="hc-value" id="hc-work-title">–</div>
+            </div>
+            <div class="hc-field">
+              <div class="hc-label">Impact</div>
+              <div class="hc-value" id="hc-impact-desc">–</div>
+            </div>
+            <div class="hc-field">
+              <div class="hc-label">Contributors</div>
+              <div class="hc-value" id="hc-contributors">–</div>
+            </div>
+            <div class="hc-field">
+              <div class="hc-label">Evidence CID</div>
+              <div class="hc-cid" id="hc-evidence-cid">–</div>
+            </div>
+            <div class="hc-sim-note" id="hc-sim-note">
+              Simulation mode — schema valid, not yet minted on-chain.
+            </div>
+          </div>
         </div>
       </div>
 
@@ -932,6 +1166,18 @@
       </button>
 
       <div class="divider"></div>
+
+      <!-- Semantic Search -->
+      <div class="search-row">
+        <input
+          type="text"
+          class="search-input"
+          id="search-input"
+          placeholder="🔍 Search your archives…"
+          autocomplete="off"
+        />
+      </div>
+      <div class="search-results-list" id="search-results-list"></div>
 
       <!-- Archive History -->
       <div class="section-header">
@@ -1006,7 +1252,7 @@
       <div class="settings-section">
         <div class="settings-label">Backend API</div>
         <div class="settings-desc">
-          Connect your Private Web Memory backend for AI Summary mode and
+          Connect your FilImpact backend for AI Summary mode and
           async processing. Leave blank to use direct Filecoin (Full Save only).
         </div>
         <input

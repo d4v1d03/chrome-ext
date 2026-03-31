@@ -12,7 +12,7 @@ class PageData(BaseModel):
 
 
 class SaveRequest(BaseModel):
-    mode: str  # "full" | "ai_summary"
+    mode: str  # "full" | "ai_summary" | "agentic"
     page: PageData
 
 
@@ -22,11 +22,56 @@ class SaveResponse(BaseModel):
     message: str
 
 
+class ScoresData(BaseModel):
+    impact:      Optional[int] = None
+    confidence:  Optional[int] = None
+    novelty:     Optional[int] = None
+    credibility: Optional[int] = None
+
+
 class JobStatus(BaseModel):
     job_id: str
-    status: str  # queued | processing | complete | failed
+    status: str          # queued | processing | complete | failed
     step: Optional[str] = None
-    cid: Optional[str] = None
+    cid:  Optional[str] = None
     mode: Optional[str] = None
-    summary: Optional[dict] = None
+    # AI Summary fields
+    summary:    Optional[dict] = None
+    # Agentic pipeline fields
+    key_points:      Optional[list] = None
+    topics:          Optional[list] = None
+    scores:          Optional[ScoresData] = None
+    impact_type:     Optional[str] = None
+    hypercert_payload: Optional[dict] = None
     error: Optional[str] = None
+
+
+class SearchResult(BaseModel):
+    job_id: str
+    score:  float
+    url:    Optional[str] = None
+    title:  Optional[str] = None
+    mode:   Optional[str] = None
+    topics: Optional[str] = None
+    summary_snippet: Optional[str] = None
+    impact_score:    Optional[int] = None
+    impact_type:     Optional[str] = None
+    cid:             Optional[str] = None
+
+
+class SearchResponse(BaseModel):
+    query:   str
+    results: list[SearchResult]
+    total:   int
+
+
+class RelatedResponse(BaseModel):
+    job_id:  str
+    related: list[SearchResult]
+
+
+class HypercertResponse(BaseModel):
+    job_id:      str
+    hypercert:   dict
+    simulation:  Optional[dict] = None
+    generated_at: str

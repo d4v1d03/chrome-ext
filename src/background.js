@@ -1,27 +1,10 @@
-/**
- * Background service worker.
- *
- * Responsibilities:
- *  1. Persist archive history in chrome.storage.local (up to MAX_HISTORY entries).
- *  2. Proxy backend API calls (save + status) for the content script, since
- *     content scripts cannot reach cross-origin URLs without host permissions
- *     being exercised from the service worker context.
- *
- * NOTE: Heavy SDK uploads (direct Filecoin via Synapse) still run in the popup
- * to avoid MV3 service worker 30-second termination limits.
- */
-
 const MAX_HISTORY = 50;
-
-// ── Initialisation ────────────────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.get(['archives'], (result) => {
     if (!result.archives) chrome.storage.local.set({ archives: [] });
   });
 });
-
-// ── Message router ────────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   switch (request.action) {
@@ -54,7 +37,6 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   }
 });
 
-// ── Archive history ───────────────────────────────────────────────────────────
 
 function handleSaveArchive(request, sendResponse) {
   chrome.storage.local.get(['archives'], (result) => {
@@ -65,7 +47,6 @@ function handleSaveArchive(request, sendResponse) {
   });
 }
 
-// ── Backend proxy helpers ─────────────────────────────────────────────────────
 
 function getSettings() {
   return new Promise((resolve) => {

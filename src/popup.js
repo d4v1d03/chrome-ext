@@ -8,14 +8,16 @@ let settings = {
   backendUrl: '',
   backendApiKey: '',
 };
-let saveMode = 'full';       // 'full' | 'ai_summary'
+let saveMode = 'full';       // 'full' | 'ai_summary' | 'agentic'
 let currentView = 'main';
 let isArchiving = false;
 let currentTabInfo = null;
+let lastJobId = null;        // track last completed job for Hypercert generation
 
 const MODE_INFO = {
-  full: 'Captures the complete HTML and stores it to decentralized storage.',
-  ai_summary: 'AI extracts key content and stores a compressed, searchable summary.',
+  full:      'Captures the complete HTML and stores it to decentralized storage.',
+  ai_summary:'AI extracts key content and stores a compressed, searchable summary.',
+  agentic:   '4-agent pipeline: Extract → Validate → Score → Hypercert. Full RAG indexing.',
 };
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
@@ -27,6 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initSettingsView();
   initModeSelector();
   bindEvents();
+  bindSearchEvents();
   updateMainView();
 });
 
@@ -112,22 +115,35 @@ function renderArchiveList(archives) {
 
   list.innerHTML = archives
     .map((item) => {
-      const modeClass = item.mode === 'ai_summary' ? 'ai' : 'full';
-      const modeLabel = item.mode === 'ai_summary' ? 'AI' : 'Full';
-      const cid = item.pieceCid || item.cid || '';
+      const m = item.mode || 'full';
+      const modeClass = m === 'ai_summary' ? 'ai' : m === 'agentic' ? 'agentic' : 'full';
+      const modeLabel = m === 'ai_summary' ? 'AI' : m === 'agentic' ? '⚡ Agentic' : 'Full';
+      const icon      = m === 'agentic' ? '🧠' : m === 'ai_summary' ? '🤖' : '📄';
+      const cid     = item.pieceCid || item.cid || '';
+      const isMock  = cid.startsWith('mock-cid-');
+      const jobId   = item.jobId || item.job_id || '';
+      const viewUrl = isMock
+        ? (jobId && settings.backendUrl
+            ? `${settings.backendUrl.replace(/\/$/,'')}/api/view/${jobId}`
+            : item.url || '#')
+        : `https://ipfs.io/ipfs/${cid}`;
+      const viewTitle = isMock
+        ? (jobId && settings.backendUrl ? 'View saved content' : 'Open original page')
+        : 'View on IPFS';
+      const cidLabel  = isMock ? (item.url ? truncate(item.url, 26) : truncate(cid, 26)) : truncate(cid, 26);
       return `
     <div class="archive-item">
-      <div class="archive-item-icon">${item.mode === 'ai_summary' ? '🤖' : '📄'}</div>
+      <div class="archive-item-icon">${icon}</div>
       <div class="archive-item-info">
         <div class="archive-item-title" title="${escHtml(item.title)}">
-          ${escHtml(truncate(item.title, 36))}
+          ${escHtml(truncate(item.title, 32))}
           <span class="mode-badge ${modeClass}">${modeLabel}</span>
         </div>
-        <div class="archive-item-cid" title="${escHtml(cid)}">${truncate(cid, 26)}</div>
+        <div class="archive-item-cid" title="${escHtml(cid)}">${cidLabel}</div>
       </div>
       <div class="archive-item-actions">
         <button class="btn-icon-xs copy-cid-btn" title="Copy CID" data-cid="${escHtml(cid)}">⧉</button>
-        <a class="btn-icon-xs" title="View on IPFS" href="https://ipfs.io/ipfs/${escHtml(cid)}" target="_blank">↗</a>
+        <a class="btn-icon-xs" title="${escHtml(viewTitle)}" href="${escHtml(viewUrl)}" target="_blank">↗</a>
       </div>
     </div>`;
     })
@@ -145,11 +161,12 @@ function initModeSelector() {
 }
 
 function updateModeUI() {
-  $('pill-full').classList.toggle('active', saveMode === 'full');
-  $('pill-ai').classList.toggle('active', saveMode === 'ai_summary');
+  $('pill-full').classList.toggle('active',    saveMode === 'full');
+  $('pill-ai').classList.toggle('active',      saveMode === 'ai_summary');
+  $('pill-agentic').classList.toggle('active', saveMode === 'agentic');
   $('mode-info-text').textContent = MODE_INFO[saveMode];
 
-  const needsBackend = saveMode === 'ai_summary' && !settings.backendUrl;
+  const needsBackend = (saveMode === 'ai_summary' || saveMode === 'agentic') && !settings.backendUrl;
   $('mode-warn').classList.toggle('visible', needsBackend);
   $('btn-archive').disabled = isArchiving || (!settings.privateKey && !settings.backendUrl) || needsBackend;
 }
@@ -217,6 +234,13 @@ function bindEvents() {
     saveMode = 'ai_summary';
     updateModeUI();
   });
+  $('pill-agentic').addEventListener('click', () => {
+    saveMode = 'agentic';
+    updateModeUI();
+  });
+
+  // Impact Claim button
+  $('btn-generate-impact').addEventListener('click', onGenerateImpact);
 
   // Link in mode-warn
   document.addEventListener('click', (e) => {
@@ -276,12 +300,80 @@ function updateMainView() {
   updateModeUI();
 }
 
+// ── Semantic Search ───────────────────────────────────────────────────────────
+
+function bindSearchEvents() {
+  const input = $('search-input');
+  if (!input) return;
+
+  let debounceTimer = null;
+  input.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    const q = input.value.trim();
+    if (!q) {
+      $('search-results-list').classList.remove('visible');
+      $('search-results-list').innerHTML = '';
+      return;
+    }
+    debounceTimer = setTimeout(() => runSearch(q), 500);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      input.value = '';
+      $('search-results-list').classList.remove('visible');
+    }
+  });
+}
+
+async function runSearch(q) {
+  if (!settings.backendUrl) return;
+
+  const list = $('search-results-list');
+  list.innerHTML = '<div class="search-result-item" style="color:#475569">Searching…</div>';
+  list.classList.add('visible');
+
+  try {
+    const headers = {};
+    if (settings.backendApiKey) headers['X-API-Key'] = settings.backendApiKey;
+    const base = settings.backendUrl.replace(/\/$/, '');
+    const resp = await fetch(
+      `${base}/api/search?q=${encodeURIComponent(q)}&top_k=5`,
+      { headers }
+    );
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    if (!data.results?.length) {
+      list.innerHTML = '<div class="search-result-item" style="color:#475569">No results found.</div>';
+      return;
+    }
+
+    list.innerHTML = data.results.map((r) => {
+      const score = Math.round((r.score || 0) * 100);
+      const snippet = r.summary_snippet ? escHtml(truncate(r.summary_snippet, 80)) : '';
+      return `
+        <div class="search-result-item">
+          <div class="sr-title">
+            ${escHtml(truncate(r.title || r.url || 'Untitled', 48))}
+            <span class="sr-score">${score}%</span>
+          </div>
+          ${snippet ? `<div class="sr-meta">${snippet}</div>` : ''}
+        </div>`;
+    }).join('');
+  } catch (err) {
+    list.innerHTML = `<div class="search-result-item" style="color:#ef4444">Error: ${escHtml(err.message)}</div>`;
+  }
+}
+
 // ── Archive Dispatcher ────────────────────────────────────────────────────────
 
 async function onArchiveClick() {
   if (isArchiving) return;
-  // Prefer backend when URL is configured
-  if (settings.backendUrl) {
+  if (saveMode === 'agentic' || saveMode === 'ai_summary') {
+    await runBackendSave();
+  } else if (settings.backendUrl) {
     await runBackendSave();
   } else {
     await runDirectFilecoin();
@@ -331,12 +423,17 @@ async function runBackendSave() {
     setBStep('store', 'done');
     setBProgress(100);
 
+    // Attach job_id to result so success panel can use it for Hypercert
+    result.job_id = sendResp.job_id;
+
     // Save to local history
     await msgBackground({
       action:  'saveArchive',
       archive: {
         pieceCid:  result.cid,
         cid:       result.cid,
+        jobId:     sendResp.job_id || '',
+        job_id:    sendResp.job_id || '',
         url:       pageData.url,
         title:     pageData.title,
         timestamp: Date.now(),
@@ -362,11 +459,17 @@ async function runBackendSave() {
 
 async function pollBackendStatus(jobId) {
   const STEP_TO_LABEL = {
-    packaging:    'Packaging…',
-    encrypting:   'Encrypting…',
-    storing:      'Storing…',
-    ai_extraction:'AI analyzing…',
-    embedding:    'Generating embeddings…',
+    packaging:          'Packaging…',
+    encrypting:         'Encrypting…',
+    encrypting_final:   'Encrypting final archive…',
+    storing:            'Storing to Filecoin…',
+    ai_extraction:      'AI analyzing…',
+    embedding:          'Generating embeddings…',
+    agent_extracting:   '🔬 Extracting structured data…',
+    agent_rag_lookup:   '🔍 RAG lookup…',
+    agent_validating:   '✅ Validating credibility…',
+    agent_scoring:      '📊 Scoring impact…',
+    agent_generating:   '🌱 Generating Hypercert…',
   };
 
   for (let i = 0; i < 90; i++) {
@@ -396,37 +499,250 @@ async function pollBackendStatus(jobId) {
 }
 
 function showSuccessBackend(result) {
-  const cid = result.cid || '';
-  $('result-cid').textContent = cid;
-  $('btn-view-archive').href  = `https://ipfs.io/ipfs/${cid}`;
-  $('success-title').textContent =
-    result.mode === 'ai_summary' ? 'AI Summary Archived!' : 'Page Archived!';
+  const cid    = result.cid || '';
+  const isMock = cid.startsWith('mock-cid-');
+  const jobId  = result.job_id || lastJobId || '';
+  $('result-cid').textContent = isMock ? (result.url || cid) : cid;
+  if (isMock && jobId && settings.backendUrl) {
+    $('btn-view-archive').href  = `${settings.backendUrl.replace(/\/$/,'')}/api/view/${jobId}`;
+    $('btn-view-archive').title = 'View saved content';
+  } else if (isMock && result.url) {
+    $('btn-view-archive').href  = result.url;
+    $('btn-view-archive').title = 'Open original page';
+  } else {
+    $('btn-view-archive').href  = `https://ipfs.io/ipfs/${cid}`;
+    $('btn-view-archive').title = 'View on IPFS';
+  }
 
-  // Render AI summary if present
+  const MODE_TITLES = {
+    full:      'Page Archived!',
+    ai_summary:'AI Summary Archived!',
+    agentic:   'Agentic Archive Complete!',
+  };
+  $('success-title').textContent = MODE_TITLES[result.mode] || 'Page Archived!';
+
+  // AI Summary section
   const summarySection = $('ai-summary-section');
   if (result.summary) {
-    renderAISummary(result.summary);
+    renderAISummary(result.summary, result.key_points, result.topics);
     summarySection.classList.add('visible');
   } else {
     summarySection.classList.remove('visible');
   }
 
+  // Agentic scores panel
+  const scoresPanel = $('scores-panel');
+  if (result.scores) {
+    renderScores(result.scores);
+    scoresPanel.classList.add('visible');
+  } else {
+    scoresPanel.classList.remove('visible');
+  }
+
+  // Impact type tag
+  if (result.impact_type) {
+    $('impact-type-tag').textContent = result.impact_type.replace(/_/g, ' ');
+    $('impact-type-row').style.display = 'flex';
+  } else {
+    $('impact-type-row').style.display = 'none';
+  }
+
+  // Show Hypercert button when backend is connected (any mode can generate claims)
+  const hcPanel = $('hypercert-panel');
+  if (settings.backendUrl && result.job_id) {
+    lastJobId = result.job_id;
+    hcPanel.classList.add('visible');
+    $('hypercert-result').classList.remove('visible');
+    $('btn-generate-impact').disabled = false;
+    $('btn-generate-impact').textContent = '🌱 Generate Impact Claim';
+  } else {
+    hcPanel.classList.remove('visible');
+  }
+
   $('success-section').classList.add('visible');
 }
 
-function renderAISummary(summary) {
-  $('ai-summary-text').textContent = summary.summary || '';
+function renderAISummary(summary, keyPoints, topics) {
+  // summary can be a dict (ai_summary mode) or a plain string (agentic mode passes string)
+  const summaryText = typeof summary === 'string'
+    ? summary
+    : (summary?.summary || '');
+  $('ai-summary-text').textContent = summaryText;
 
   const pts = $('ai-key-points');
-  pts.innerHTML = (summary.key_points || [])
-    .slice(0, 5)
+  const ptList = keyPoints || summary?.key_points || [];
+  pts.innerHTML = ptList
+    .slice(0, 6)
     .map((p) => `<div class="ai-key-point">${escHtml(p)}</div>`)
     .join('');
 
   const tags = $('ai-topics');
-  tags.innerHTML = (summary.topics || [])
+  const tagList = topics || summary?.topics || [];
+  tags.innerHTML = tagList
     .map((t) => `<span class="ai-topic-tag">${escHtml(t)}</span>`)
     .join('');
+}
+
+function renderScores(scores) {
+  const fields = [
+    ['sc-impact',      scores.impact],
+    ['sc-confidence',  scores.confidence],
+    ['sc-novelty',     scores.novelty],
+    ['sc-credibility', scores.credibility],
+  ];
+  fields.forEach(([id, val]) => {
+    const el = $(id);
+    if (!el) return;
+    el.textContent = val != null ? val : '–';
+    el.className   = 'score-val';
+    if (val != null) {
+      if (val >= 70)      el.classList.add('high');
+      else if (val >= 40) el.classList.add('medium');
+      else                el.classList.add('low');
+    }
+  });
+}
+
+// ── Impact Claim / Hypercert ──────────────────────────────────────────────────
+
+async function onGenerateImpact() {
+  if (!lastJobId || !settings.backendUrl) return;
+
+  const btn = $('btn-generate-impact');
+  btn.disabled = true;
+  btn.textContent = '⏳ Generating…';
+
+  // Grab the current tab's URL + title to send as page metadata
+  let tabUrl = '', tabTitle = '', tabText = '';
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    tabUrl   = tab?.url   || '';
+    tabTitle = tab?.title || '';
+  } catch (_) { /* popup may not have tab access in some cases */ }
+
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (settings.backendApiKey) headers['X-API-Key'] = settings.backendApiKey;
+
+    const base   = settings.backendUrl.replace(/\/$/, '');
+    const params = new URLSearchParams();
+    if (tabUrl)   params.set('page_url',   tabUrl);
+    if (tabTitle) params.set('page_title', tabTitle);
+
+    const resp = await fetch(`${base}/api/hypercert/${lastJobId}?${params}`, {
+      method: 'POST',
+      headers,
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: `HTTP ${resp.status}` }));
+      throw new Error(err.detail || `HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    renderHypercert(data);
+    btn.textContent = '✓ Impact Claim Ready';
+  } catch (err) {
+    btn.disabled = false;
+
+    // Auto-retry with ?mock=true if AI quota / auth errors are detected
+    const errMsg = err.message || '';
+    if (errMsg.includes('429') || errMsg.includes('insufficient_quota') ||
+        errMsg.includes('401') || errMsg.includes('invalid_api_key')) {
+      btn.textContent = '⏳ Using Demo Mode…';
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (settings.backendApiKey) headers['X-API-Key'] = settings.backendApiKey;
+        const base   = settings.backendUrl.replace(/\/$/, '');
+        const params = new URLSearchParams({ mock: 'true' });
+        if (tabUrl)   params.set('page_url',   tabUrl);
+        if (tabTitle) params.set('page_title', tabTitle);
+
+        const resp2 = await fetch(`${base}/api/hypercert/${lastJobId}?${params}`, {
+          method: 'POST', headers,
+        });
+        if (resp2.ok) {
+          const data2 = await resp2.json();
+          renderHypercert(data2);
+          btn.textContent = '✓ Demo Claim Ready';
+          return;
+        }
+      } catch (_) { /* fall through to normal error display */ }
+    }
+
+    btn.textContent = '✕ Failed — see details below';
+
+    const resultEl = $('hypercert-result');
+    resultEl.classList.add('visible');
+    resultEl.innerHTML = `
+      <div style="color:#ef4444;font-size:11px;font-weight:700;margin-bottom:6px">
+        ✕ Hypercert generation failed
+      </div>
+      <div style="font-size:10px;color:#94a3b8;line-height:1.5;word-break:break-word;
+                  max-height:120px;overflow-y:auto;background:rgba(0,0,0,0.3);
+                  border-radius:5px;padding:8px;">
+        ${escHtml(errMsg)}
+      </div>
+      <div style="font-size:10px;color:#475569;margin-top:6px">
+        Tip: Check your uvicorn terminal for the full traceback.
+      </div>`;
+
+    setTimeout(() => {
+      btn.disabled    = false;
+      btn.textContent = '🌱 Retry Impact Claim';
+    }, 4000);
+  }
+}
+
+function renderHypercert(data) {
+  const hc   = data.hypercert || {};
+  const work = hc.work || {};
+  const imp  = hc.impact || {};
+  const meta = hc.metadata || {};
+  const sim  = data.simulation || {};
+  const isMock = hc.mock === true;
+
+  $('hc-work-title').textContent   = work.title || meta.name || '–';
+  $('hc-impact-desc').textContent  = imp.description || '–';
+
+  const contribs = (work.contributors || []).join(', ');
+  $('hc-contributors').textContent = contribs || 'Unknown';
+
+  const evidence = (meta.evidence || []).find(e => e.type === 'filecoin');
+  $('hc-evidence-cid').textContent = evidence?.src || hc.job_id || '–';
+
+  $('hc-sim-note').textContent = sim.message
+    ? sim.message.slice(0, 120)
+    : 'Simulation complete. Schema valid, not yet minted on-chain.';
+
+  // Inject a "Demo Mode" badge if AI was not used
+  const resultEl = $('hypercert-result');
+  let mockBanner = resultEl.querySelector('.hc-demo-badge');
+  if (isMock) {
+    if (!mockBanner) {
+      mockBanner = document.createElement('div');
+      mockBanner.className = 'hc-demo-badge';
+      mockBanner.style.cssText = `
+        background: linear-gradient(90deg, #f59e0b, #d97706);
+        color: #1c1917; font-size: 10px; font-weight: 700;
+        padding: 3px 8px; border-radius: 4px; margin-bottom: 8px;
+        display: inline-block; letter-spacing: 0.5px;`;
+      resultEl.insertBefore(mockBanner, resultEl.firstChild);
+    }
+    const reason = hc.mock_reason ? ` — ${hc.mock_reason.slice(0, 80)}` : '';
+    mockBanner.textContent = `⚡ DEMO MODE${reason}`;
+
+    // Also show the AI scores that were deterministically generated
+    if (hc.scores) renderScores(hc.scores);
+    if (meta.impact_type) {
+      const itEl = $('impact-type-value');
+      if (itEl) itEl.textContent = meta.impact_type.replace(/_/g, ' ');
+    }
+  } else if (mockBanner) {
+    mockBanner.remove();
+  }
+
+  resultEl.classList.add('visible');
 }
 
 // ── Direct Filecoin Flow (existing) ──────────────────────────────────────────
@@ -459,7 +775,7 @@ async function runDirectFilecoin() {
         timestamp:  pageData.timestamp,
         archivedAt: new Date(pageData.timestamp).toISOString(),
         version:    '1.0',
-        source:     'filarchive-chrome-extension',
+        source:     'filimpact-chrome-extension',
       },
       content: { html: pageData.html, text: pageData.text },
     };
@@ -535,6 +851,9 @@ async function runDirectFilecoin() {
     showProgress(false);
     $('success-title').textContent = 'Page Archived!';
     $('ai-summary-section').classList.remove('visible');
+    $('scores-panel').classList.remove('visible');
+    $('impact-type-row').style.display = 'none';
+    $('hypercert-panel').classList.remove('visible');
     showSuccess(pieceCid);
     await loadArchiveHistory();
   } catch (err) {
@@ -629,8 +948,10 @@ function showBackendProgress(visible) {
 }
 
 function showSuccess(pieceCid) {
-  $('result-cid').textContent       = pieceCid;
-  $('btn-view-archive').href        = `https://ipfs.io/ipfs/${pieceCid}`;
+  const isMock = pieceCid.startsWith('mock-cid-');
+  $('result-cid').textContent = pieceCid;
+  $('btn-view-archive').href  = isMock ? '#' : `https://ipfs.io/ipfs/${pieceCid}`;
+  if (isMock) $('btn-view-archive').style.display = 'none';
   $('success-section').classList.add('visible');
 }
 

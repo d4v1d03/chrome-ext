@@ -1,5 +1,3 @@
-// ── Page extraction ───────────────────────────────────────────────────────────
-
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.action === 'extractPage') {
     try {
@@ -21,8 +19,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 });
-
-// ── Floating Save Button ───────────────────────────────────────────────────────
 
 let fabShadow = null;
 let currentMode = 'full';
@@ -146,7 +142,7 @@ function injectSaveButton() {
   <div id="status"></div>
 </div>
 
-<button id="fab" title="Save to Private Web Memory">💾</button>
+<button id="fab" title="Save to FilImpact">💾</button>
 `;
 
   document.documentElement.appendChild(host);

@@ -1,7 +1,7 @@
 {
-  "name": "filarchive-chrome-extension",
+  "name": "filimpact-chrome-extension",
   "version": "1.0.0",
-  "description": "Archive webpages to Filecoin decentralized storage via Synapse SDK",
+  "description": "Save impactful webpages to Filecoin with AI scoring and Hypercert claims",
   "main": "index.js",
   "scripts": {
     "build": "webpack --mode production",

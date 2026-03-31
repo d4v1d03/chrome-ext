@@ -1,7 +1,3 @@
-"""AES-256-GCM encryption helpers.
-
-Encrypted blob layout: salt(16 bytes) | nonce(12 bytes) | ciphertext
-"""
 import os
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC

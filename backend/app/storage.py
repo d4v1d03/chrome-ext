@@ -1,18 +1,16 @@
-"""Storage layer.
-
-MockStorage: in-process dict store, good for development.
-FilecoinStorage: stub that delegates to Mock until a Node.js Synapse
-                 sidecar is wired up for real on-chain storage.
-
-Swap get_storage() return value to FilecoinStorage once you have
-FILECOIN_PRIVATE_KEY in your .env and a sidecar running.
-"""
+import base64
+import json
 import os
+import subprocess
 from typing import Optional
+
+# Path to the sidecar script relative to this file:
+# backend/app/storage.py  →  ../../synapse_sidecar.js
+_SIDECAR_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "synapse_sidecar.mjs")
+_SIDECAR_PATH = os.path.normpath(_SIDECAR_PATH)
 
 
 class MockStorage:
-    """In-memory store. Data is lost on worker restart."""
 
     _store: dict = {}
     _counter: int = 0
@@ -29,24 +27,42 @@ class MockStorage:
 
 
 class FilecoinStorage:
-    """
-    Filecoin via Synapse SDK.
-    Currently falls back to MockStorage; replace store() with an HTTP
-    call to a Node.js sidecar (e.g. `node synapse-sidecar.js`) that
-    wraps the @filoz/synapse-sdk once you're ready for production.
-    """
 
     def __init__(self, private_key: str, network: str = "calibration"):
         self.private_key = private_key
         self.network = network
-        self._mock = MockStorage()
 
     def store(self, data: bytes, metadata: dict) -> str:
-        # TODO: POST to Node.js sidecar → returns pieceCid
-        return self._mock.store(data, metadata)
+        payload = json.dumps({
+            "privateKey": self.private_key,
+            "network":    self.network,
+            "dataB64":    base64.b64encode(data).decode("ascii"),
+            "metadata":   metadata,
+        })
+
+        result = subprocess.run(
+            ["node", _SIDECAR_PATH],
+            input=payload,
+            capture_output=True,
+            text=True,
+            timeout=120,        # uploads can take a while on Calibration
+        )
+
+        try:
+            out = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            stderr = result.stderr[:400] if result.stderr else "(no stderr)"
+            raise RuntimeError(f"Sidecar returned non-JSON: {result.stdout!r} | stderr: {stderr}")
+
+        if "error" in out:
+            raise RuntimeError(f"Filecoin upload failed: {out['error']}")
+
+        return out["cid"]
 
     def retrieve(self, cid: str) -> Optional[bytes]:
-        return self._mock.retrieve(cid)
+        # Retrieval via sidecar not implemented yet — data can be fetched
+        # via ipfs.io/ipfs/<cid> or synapse.storage.download() in the extension
+        return None
 
 
 def get_storage():
